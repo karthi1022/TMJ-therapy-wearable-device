@@ -1,0 +1,158 @@
+#include <Arduino.h>
+
+// --- Pin Definitions ---
+// L293D Motor Driver Pins (N20 Motor)
+const int PIN_MOTOR_IN1 = 18;
+const int PIN_MOTOR_IN2 = 19;
+
+// Transistor/MOSFET Driver Pins
+const int PIN_VIBRATION = 23;
+const int PIN_HEATING   = 22;
+
+// Button Pins (Active LOW via INPUT_PULLUP)
+const int PIN_BTN_POWER     = 13;
+const int PIN_BTN_FORWARD   = 12;
+const int PIN_BTN_BACKWARD  = 14;
+const int PIN_BTN_VIBRATION = 27;
+const int PIN_BTN_HEATING   = 26;
+
+// --- State Variables ---
+bool systemPoweredOn = false;
+bool vibrationActive = false;
+bool heatingActive   = false;
+
+enum MotorState {
+  MOTOR_STOP,
+  MOTOR_FWD,
+  MOTOR_BWD
+};
+MotorState currentMotorState = MOTOR_STOP;
+
+// --- Helper Functions ---
+void setMotor(MotorState state) {
+  if (!systemPoweredOn) {
+    digitalWrite(PIN_MOTOR_IN1, LOW);
+    digitalWrite(PIN_MOTOR_IN2, LOW);
+    return;
+  }
+
+  switch (state) {
+    case MOTOR_FWD:
+      digitalWrite(PIN_MOTOR_IN1, HIGH);
+      digitalWrite(PIN_MOTOR_IN2, LOW);
+      break;
+    case MOTOR_BWD:
+      digitalWrite(PIN_MOTOR_IN1, LOW);
+      digitalWrite(PIN_MOTOR_IN2, HIGH);
+      break;
+    case MOTOR_STOP:
+    default:
+      digitalWrite(PIN_MOTOR_IN1, LOW);
+      digitalWrite(PIN_MOTOR_IN2, LOW);
+      break;
+  }
+}
+
+void turnOffAllOutputs() {
+  setMotor(MOTOR_STOP);
+  digitalWrite(PIN_VIBRATION, LOW);
+  digitalWrite(PIN_HEATING, LOW);
+  vibrationActive = false;
+  heatingActive = false;
+  currentMotorState = MOTOR_STOP;
+}
+
+// Simple debounce helper: returns true once per physical press
+bool isButtonPressed(int pin) {
+  if (digitalRead(pin) == LOW) {
+    delay(50); // Debounce delay
+    if (digitalRead(pin) == LOW) {
+      // Wait for release to avoid repeated rapid triggers
+      while (digitalRead(pin) == LOW) {
+        delay(10);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  // Configure Output Pins
+  pinMode(PIN_MOTOR_IN1, OUTPUT);
+  pinMode(PIN_MOTOR_IN2, OUTPUT);
+  pinMode(PIN_VIBRATION, OUTPUT);
+  pinMode(PIN_HEATING, OUTPUT);
+
+  // Initialize outputs to OFF
+  turnOffAllOutputs();
+
+  // Configure Button Pins with internal pull-up resistors
+  pinMode(PIN_BTN_POWER, INPUT_PULLUP);
+  pinMode(PIN_BTN_FORWARD, INPUT_PULLUP);
+  pinMode(PIN_BTN_BACKWARD, INPUT_PULLUP);
+  pinMode(PIN_BTN_VIBRATION, INPUT_PULLUP);
+  pinMode(PIN_BTN_HEATING, INPUT_PULLUP);
+
+  Serial.println("System Initialized. Power is OFF.");
+}
+
+void loop() {
+  // 1. Check Master On/Off Button
+  if (isButtonPressed(PIN_BTN_POWER)) {
+    systemPoweredOn = !systemPoweredOn;
+    if (!systemPoweredOn) {
+      turnOffAllOutputs();
+      Serial.println("System powered OFF.");
+    } else {
+      Serial.println("System powered ON.");
+    }
+  }
+
+  // If the system is turned off, skip other button actions
+  if (!systemPoweredOn) {
+    return;
+  }
+
+  // 2. Check Motor Forward Button
+  if (isButtonPressed(PIN_BTN_FORWARD)) {
+    if (currentMotorState == MOTOR_FWD) {
+      currentMotorState = MOTOR_STOP;
+      Serial.println("Motor: STOPPED");
+    } else {
+      currentMotorState = MOTOR_FWD;
+      Serial.println("Motor: FORWARD");
+    }
+    setMotor(currentMotorState);
+  }
+
+  // 3. Check Motor Backward Button
+  if (isButtonPressed(PIN_BTN_BACKWARD)) {
+    if (currentMotorState == MOTOR_BWD) {
+      currentMotorState = MOTOR_STOP;
+      Serial.println("Motor: STOPPED");
+    } else {
+      currentMotorState = MOTOR_BWD;
+      Serial.println("Motor: BACKWARD");
+    }
+    setMotor(currentMotorState);
+  }
+
+  // 4. Check Vibration Motor Toggle
+  if (isButtonPressed(PIN_BTN_VIBRATION)) {
+    vibrationActive = !vibrationActive;
+    digitalWrite(PIN_VIBRATION, vibrationActive ? HIGH : LOW);
+    Serial.print("Vibration Motor: ");
+    Serial.println(vibrationActive ? "ON" : "OFF");
+  }
+
+  // 5. Check Heating Element Toggle
+  if (isButtonPressed(PIN_BTN_HEATING)) {
+    heatingActive = !heatingActive;
+    digitalWrite(PIN_HEATING, heatingActive ? HIGH : LOW);
+    Serial.print("Heating Element: ");
+    Serial.println(heatingActive ? "ON" : "OFF");
+  }
+}
