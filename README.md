@@ -4,12 +4,12 @@ A dedicated wearable medical therapy device engineered to provide controlled mas
 
 ## Hardware & Components
 - Microcontroller: ESP32
-- Actuators: Miniature vibration / micro-linear massage motors
+- Actuators: Miniature vibration motors
 - Power: Rechargeable Li-ion battery circuit
 
 ## Tech Stack
 - **Firmware:** Real-time Embedded C
-- **Features:** Timed therapy cycles, variable intensity presets 
+- **Features:** Timed therapy cycles
 
 ##  Key Highlights
 - Controlled massage cycles tailored for delicate facial joints.
